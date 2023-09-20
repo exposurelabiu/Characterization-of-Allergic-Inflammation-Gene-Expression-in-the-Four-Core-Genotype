@@ -1,0 +1,29 @@
+cp ../Counts_per_gene_per_sample_raw_BCL-SP0275.csv geneCounts.tsv
+perl -pi -e 's/,/\t/go' geneCounts.tsv
+
+# Create a phenoData file with all the relevant columns needed and samples in correct order
+
+Rscript reorder.R
+mv geneCounts.reorder.tsv geneCounts.tsv
+
+perl fixID.pl geneCounts.tsv > geneCounts.tsv.new
+perl sumGenes.pl geneCounts.tsv.new > geneCounts.tsv.sum
+
+module add singularity
+singularity shell --containall --pwd `pwd` -B ~ -B /N/slate/abuechle -B /tmp -B /N/project/cgb/GSF3503-Ekpruke /N/slate/abuechle/container/r_cgb.v17.sif 
+Rscript newDESeq2.IHW.comparisons.R geneCounts.tsv.sum phenoData comparisons
+Rscript newDESeq2.IHW.comparisons.newcomps.R geneCounts.tsv.sum phenoData comparisons.new
+Rscript newDESeq2.IHW.comparisons.combinedcomps.R geneCounts.tsv.sum phenoData comparisons.group1
+# Edit script at lines 23 and 24 to run for group2 
+Rscript newDESeq2.IHW.comparisons.combinedcomps.R geneCounts.tsv.sum phenoData comparisons.group2
+
+Rscript mergeDESeqResults.R HDM.XXF_vs_PBS.XXF.DESeq2_Results.tsv HDM.XXM_vs_PBS.XXM.DESeq2_Results.tsv HDM.XYF_vs_PBS.XYF.DESeq2_Results.tsv HDM.XYM_vs_PBS.XYM.DESeq2_Results.tsv HDM.XXF_vs_HDM.XYF.DESeq2_Results.tsv HDM.XXM_vs_HDM.XXF.DESeq2_Results.tsv HDM.XYM_vs_HDM.XXF.DESeq2_Results.tsv HDM.XYM_vs_HDM.XXM.DESeq2_Results.tsv HDM.XYM_vs_HDM.XYF.DESeq2_Results.tsv PBS.XXF_vs_PBS.XYF.DESeq2_Results.tsv PBS.XXM_vs_PBS.XXF.DESeq2_Results.tsv PBS.XYM_vs_PBS.XXF.DESeq2_Results.tsv PBS.XYM_vs_PBS.XXM.DESeq2_Results.tsv PBS.XYM_vs_PBS.XYF.DESeq2_Results.tsv HDM.XX_vs_HDM.XY.DESeq2_Results.tsv PBS.XX_vs_PBS.XY.DESeq2_Results.tsv HDM.F_vs_HDM.M.DESeq2_Results.tsv PBS.F_vs_PBS.M.DESeq2_Results.tsv XX_vs_XY.DESeq2_Results.tsv F_vs_M.DESeq2_Results.tsv
+Rscript ~/bin/foldchange/mergeDESeqResults.R mergedDeseqResults.tsv normalizedCounts.tsv
+Rscript ~/bin/foldchange/mergeDESeqResults4Upset.R HDM.XXF_vs_PBS.XXF.DESeq2_Results.tsv HDM.XXM_vs_PBS.XXM.DESeq2_Results.tsv HDM.XYF_vs_PBS.XYF.DESeq2_Results.tsv HDM.XYM_vs_PBS.XYM.DESeq2_Results.tsv HDM.XXF_vs_HDM.XYF.DESeq2_Results.tsv HDM.XXM_vs_HDM.XXF.DESeq2_Results.tsv HDM.XYM_vs_HDM.XXF.DESeq2_Results.tsv HDM.XYM_vs_HDM.XXM.DESeq2_Results.tsv HDM.XYM_vs_HDM.XYF.DESeq2_Results.tsv PBS.XXF_vs_PBS.XYF.DESeq2_Results.tsv PBS.XXM_vs_PBS.XXF.DESeq2_Results.tsv PBS.XYM_vs_PBS.XXF.DESeq2_Results.tsv PBS.XYM_vs_PBS.XXM.DESeq2_Results.tsv PBS.XYM_vs_PBS.XYF.DESeq2_Results.tsv HDM.XX_vs_HDM.XY.DESeq2_Results.tsv PBS.XX_vs_PBS.XY.DESeq2_Results.tsv HDM.F_vs_HDM.M.DESeq2_Results.tsv PBS.F_vs_PBS.M.DESeq2_Results.tsv XX_vs_XY.DESeq2_Results.tsv F_vs_M.DESeq2_Results.tsv
+Rscript merge4Venn.R HDM.XXF_vs_PBS.XXF.DESeq2_Results.tsv HDM.XXM_vs_PBS.XXM.DESeq2_Results.tsv HDM.XYF_vs_PBS.XYF.DESeq2_Results.tsv HDM.XYM_vs_PBS.XYM.DESeq2_Results.tsv HDM.XXF_vs_HDM.XYF.DESeq2_Results.tsv HDM.XXM_vs_HDM.XXF.DESeq2_Results.tsv HDM.XYM_vs_HDM.XXF.DESeq2_Results.tsv HDM.XYM_vs_HDM.XXM.DESeq2_Results.tsv HDM.XYM_vs_HDM.XYF.DESeq2_Results.tsv PBS.XXF_vs_PBS.XYF.DESeq2_Results.tsv PBS.XXM_vs_PBS.XXF.DESeq2_Results.tsv PBS.XYM_vs_PBS.XXF.DESeq2_Results.tsv PBS.XYM_vs_PBS.XXM.DESeq2_Results.tsv PBS.XYM_vs_PBS.XYF.DESeq2_Results.tsv HDM.XX_vs_HDM.XY.DESeq2_Results.tsv PBS.XX_vs_PBS.XY.DESeq2_Results.tsv HDM.F_vs_HDM.M.DESeq2_Results.tsv PBS.F_vs_PBS.M.DESeq2_Results.tsv XX_vs_XY.DESeq2_Results.tsv F_vs_M.DESeq2_Results.tsv
+
+Rscript biomartDescription.R
+parallel "perl addGeneDescription.pl geneDescriptions.tsv {} > {.}.description.tsv" ::: mergedDeseqResults.tsv PBS.XX_vs_PBS.XY*tsv PBS.F_vs_PBS.M*tsv
+perl -pi -e 's/mergedDeseqResults.tsv_//go' mergedDeseqResults.tsv mergedDeseqResults.description.tsv
+perl -pi -e 's/normalizedCounts.tsv_X(\S+)/S_$1 NormalizedCount/go' mergedDeseqResults.tsv mergedDeseqResults.description.tsv
+
